@@ -144,7 +144,12 @@ int colData = 27;       // 7;
 int outputEnableA = 16; // 8;
 int outputEnableB = 23; // 8;
 
-int outputEnable = outputEnableA;
+#define NUM_DISPLAYS 2
+
+const int width  = 28 * NUM_DISPLAYS;
+const int height = 16;
+
+int outputEnable[] = {outputEnableA, outputEnableB};
 int rowEnable = 19; // 12;
 int led = 5;        // 13;
 
@@ -154,41 +159,17 @@ int a_2 = 4;  // 4;
 int b_0 = 32; // 5;
 int b_1 = 25; // 6;
 
-int rowTime = 190;
+int rowTime = 200;
 
-unsigned int frame_buffer[] = {
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-    0x0000,
-};
+unsigned int frame_buffer[28 * NUM_DISPLAYS];
+unsigned int tmp_frame_buffer[28 * NUM_DISPLAYS];
 
 void setup()
 {
+
+  for (int i = 0; i< (28*NUM_DISPLAYS); i++) {
+    frame_buffer[i]=0;
+  }
   // put your setup code here, to run once:
 
   pinMode(rowClock, OUTPUT);      // = 17;//11;
@@ -232,33 +213,79 @@ void setup()
 
 void loop()
 {
-  // put your main code here, to run repeatedly:
+  
+  // // put your main code here, to run repeatedly:
+  // for (int i=0; i<5; i++) {
+  //   allYellow();
+  //   clearDisplay();
 
-  outputEnable = outputEnableA;
-  allYellow();
-  outputEnable = outputEnableB;
-  allYellow();
-
-  delay(1000);
-  outputEnable = outputEnableA;
+  // }
+  
+  //delay(1000);
   clearDisplay();
-  outputEnable = outputEnableB;
-  clearDisplay();
-  delay(1000);
+  display_BigString("HALLO");
+  delay(300000);
 
-  outputEnable = outputEnableA;
-  display_String("FLIP ", " ARE ");
-  outputEnable = outputEnableB;
-  display_String("DOTS ", "COOL ");
-  delay(1000);
+  //delay(1000);
 
-  for (int i = 0; i < 7; i++)
-  {
+  //display_String("1234567890", "ABCDEFGHIJ");
+  //display_String("FLIP DOTS ", " ARE COOL ");
+  display_String("  HACKER  ", "   SPACE  ");
+  writeFrameBuffer();
+  delay(500);
+  display_String("   MAKER   ", "   SPACE  ");
+  writeFrameBuffer();
+  delay(500);
+  display_String("  HACKER  ", "   SPACE  ");
+  writeFrameBuffer();
+  delay(500);
+  display_String("   MAKER   ", "   SPACE  ");
+  writeFrameBuffer();
+  delay(500);
+  writeFrameBuffer();
+  
+  // display_String("FLIP DOTS  ", " SO COOL  ");
+  // writeFrameBuffer();
+  // delay(15000);
 
-    display_String("DOTS ", "     ");
-    delay(130);
-    display_String("DOTS ", "COOL ");
-    delay(130);
+  // display_String("WANT ONE?   ", "ASK PASCAL   ");
+  // writeFrameBuffer();
+  // delay(1500);
+
+  // for (int i = 0; i < 7; i++)
+  // {
+  //   display_String("FLIP  DOTS  ", " SO COOL  ");
+  //   writeFrameBuffer();
+  //   delay(750);
+  //   //display_String("FLIP DOTS ", " ARE COOL ");
+  //   display_String("WANT ONE? ", "ASK PASCAL   ");
+  //   writeFrameBuffer();
+  //   delay(750);
+  // }
+  // writeFrameBuffer();
+
+
+  // for (int i = 0; i < 7; i++)
+  // {
+  //   display_String("          ", "          ");
+  //   delay(130);
+  //   //display_String("FLIP DOTS ", " ARE COOL ");
+  //   display_String("  HACKER  ", "   HOTEL  ");
+  //   delay(130);
+  // }
+  // writeFrameBuffer();
+  delay(15000);
+
+  for (int x = 0; x < width; x++) {
+    frame_buffer[x] = rand();
+  }
+  unsigned long start = millis();
+  while(millis() < start + 15000) {
+    gameOfLife();
+    writeFrameBuffer();
+    delay(10);
+    writeFrameBuffer();
+    delay(250);
   }
   //
   // display_String("ALERT", "     ");
@@ -373,6 +400,8 @@ void shiftRow(unsigned char rowNumber, unsigned char dot)
 
 void scanColumn(unsigned int columnData, unsigned char colNumber)
 {
+  int displayNo = colNumber / 28;
+
 
   for (unsigned char i = 0; i < 16; i++)
   {
@@ -382,7 +411,7 @@ void scanColumn(unsigned int columnData, unsigned char colNumber)
     dot = dot & 0b0000000000000001;
     notDot = dot ^ 0b0000000000000001;
 
-    selectColumn(colNumber); // select column with the FP2800a chip
+    selectColumn(colNumber % 28); // select column with the FP2800a chip
 
     // select the correct row , drive it high or low
     digitalWrite(rowEnable, HIGH);
@@ -390,9 +419,9 @@ void scanColumn(unsigned int columnData, unsigned char colNumber)
 
     // write the row drivers
     digitalWrite(colData, notDot);
-    digitalWrite(outputEnable, HIGH);
+    digitalWrite(outputEnable[displayNo], HIGH);
     delayMicroseconds(rowTime);
-    digitalWrite(outputEnable, LOW);
+    digitalWrite(outputEnable[displayNo], LOW);
     digitalWrite(rowEnable, LOW);
   }
 
@@ -400,6 +429,7 @@ void scanColumn(unsigned int columnData, unsigned char colNumber)
 
 void fastScanColumn(unsigned int columnData, unsigned int prevColumnData, unsigned char colNumber)
 {
+  int displayNo = colNumber / 28;
 
   for (unsigned char i = 0; i < 16; i++)
   {
@@ -407,7 +437,7 @@ void fastScanColumn(unsigned int columnData, unsigned int prevColumnData, unsign
     unsigned char dot = (columnData >> (i));
     unsigned char prevDot = (prevColumnData >> (i));
 
-    if (false && prevDot == dot)
+    if (prevDot == dot)
     {
     }
 
@@ -418,7 +448,7 @@ void fastScanColumn(unsigned int columnData, unsigned int prevColumnData, unsign
       dot = dot & 0b0000000000000001;
       notDot = dot ^ 0b0000000000000001;
 
-      selectColumn(colNumber); // select column with the FP2800a chip
+      selectColumn(colNumber % 28); // select column with the FP2800a chip
 
       // select the correct row , drive it high or low
       digitalWrite(rowEnable, HIGH);
@@ -426,9 +456,9 @@ void fastScanColumn(unsigned int columnData, unsigned int prevColumnData, unsign
 
       // write the row drivers
       digitalWrite(colData, notDot);
-      digitalWrite(outputEnable, HIGH);
+      digitalWrite(outputEnable[displayNo], HIGH);
       delayMicroseconds(rowTime);
-      digitalWrite(outputEnable, LOW);
+      digitalWrite(outputEnable[displayNo], LOW);
       digitalWrite(rowEnable, LOW);
     }
   }
@@ -437,47 +467,31 @@ void fastScanColumn(unsigned int columnData, unsigned int prevColumnData, unsign
 
 void writeFrameBuffer()
 {
-  for (int i = 0; i < 28; i++)
+  for (int i = 0; i < (28*NUM_DISPLAYS); i++)
   {
     scanColumn(frame_buffer[i], i);
   }
 }
 
+bool getPixel(unsigned *fb, int x, int y) {
+  return (fb[x] >> y) & 1;
+}
+
+void setPixel(unsigned *fb, int x, int y, bool value) {
+  unsigned mask = 1 << y;
+  fb[x] = fb[x] & ~mask | (value * mask);
+}
+
 void display_String(String str1, String str2)
 {
 
-  unsigned int new_frame_buffer[] = {
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-      0x0000,
-  };
+  unsigned int new_frame_buffer[28*NUM_DISPLAYS];
+    for (int i = 0; i<(28*NUM_DISPLAYS); i++) {
+    new_frame_buffer[i]=0;
+  }
 
-  for (int i = 0; i < 5; i++)
+  int charsPerLine = 5 * NUM_DISPLAYS;
+  for (int i = 0; i < charsPerLine; i++)
   {
     char character = str1.charAt(i);
 
@@ -489,7 +503,7 @@ void display_String(String str1, String str2)
     }
   }
 
-  for (int i = 0; i < 5; i++)
+  for (int i = 0; i < charsPerLine; i++)
   {
     char character = str2.charAt(i);
 
@@ -501,12 +515,56 @@ void display_String(String str1, String str2)
     }
   }
 
-  for (int i = 0; i < 28; i++)
+  for (int i = 0; i < 28*NUM_DISPLAYS; i++)
   {
     fastScanColumn(new_frame_buffer[i], frame_buffer[i], i);
   }
 
-  for (int i = 0; i < 28; i++)
+  for (int i = 0; i < 28*NUM_DISPLAYS; i++)
+  {
+    frame_buffer[i] = new_frame_buffer[i];
+  }
+}
+
+void display_BigString(String str1)
+{
+
+  unsigned int new_frame_buffer[28*NUM_DISPLAYS];
+    for (int i = 0; i<(28*NUM_DISPLAYS); i++) {
+    new_frame_buffer[i]=0;
+  }
+
+  int charsPerLine = 5 * NUM_DISPLAYS;
+  for (int i = 0; i < charsPerLine; i++)
+  {
+    char character = 0;
+    if (i < str1.length()) {
+      character = str1.charAt(i);
+    }
+    
+    for (int j = 0; j < 5; j++)
+    {
+      int addr = i * 12;
+      addr = addr + j*2;
+      if (addr+1 > 28*NUM_DISPLAYS) break;
+      int c = font_data[((character * 5) + j)];
+      int cc = 0;
+      for (int d = 7; d >= 0; d--) {
+        cc = (cc << 1) | ((c >> d) & 0x1);
+        cc = (cc << 1) | ((c >> d) & 0x1);
+      }
+      cc = (cc << 1);
+      new_frame_buffer[addr] = cc;
+      new_frame_buffer[addr+1] = cc;
+    }
+  }
+
+  for (int i = 0; i < 28*NUM_DISPLAYS; i++)
+  {
+    fastScanColumn(new_frame_buffer[i], frame_buffer[i], i);
+  }
+
+  for (int i = 0; i < 28*NUM_DISPLAYS; i++)
   {
     frame_buffer[i] = new_frame_buffer[i];
   }
@@ -515,7 +573,7 @@ void display_String(String str1, String str2)
 void clearDisplay()
 {
 
-  for (int i = 0; i < 28; i++)
+  for (int i = 0; i < 28*NUM_DISPLAYS; i++)
   {
     frame_buffer[i] = 0;
     scanColumn(frame_buffer[i], i);
@@ -525,9 +583,39 @@ void clearDisplay()
 void allYellow()
 {
 
-  for (int i = 0; i < 28; i++)
+  for (int i = 0; i < 28*NUM_DISPLAYS; i++)
   {
     frame_buffer[i] = 0xffff;
     scanColumn(frame_buffer[i], i);
   }
+}
+
+static inline void golPixel(int x, int y) {
+  int count = 0;
+  count += getPixel(frame_buffer, (x + width - 1) % width, (y + height - 1) % height);
+  count += getPixel(frame_buffer, x,                       (y + height - 1) % height);
+  count += getPixel(frame_buffer, (x + 1)         % width, (y + height - 1) % height);
+  count += getPixel(frame_buffer, (x + width - 1) % width, y);
+  count += getPixel(frame_buffer, (x + 1)         % width, y);
+  count += getPixel(frame_buffer, (x + width - 1) % width, (y + 1) % height);
+  count += getPixel(frame_buffer, x,                       (y + 1) % height);
+  count += getPixel(frame_buffer, (x + 1) % width,         (y + 1) % height);
+  if (count >= 4) {
+    setPixel(tmp_frame_buffer, x, y, 0);
+  } else if (count <= 1) {
+    setPixel(tmp_frame_buffer, x, y, 0);
+  } else if (count == 3) {
+    setPixel(tmp_frame_buffer, x, y, 1);
+  } else {
+    setPixel(tmp_frame_buffer, x, y, getPixel(frame_buffer, x, y));
+  }
+}
+
+void gameOfLife() {
+  for (int x = 0; x < width; x++) {
+    for (int y = 0; y < height; y++) {
+      golPixel(x, y);
+    }
+  }
+  memcpy(frame_buffer, tmp_frame_buffer, sizeof(unsigned int) * width);
 }
